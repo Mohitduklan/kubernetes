@@ -1,0 +1,322 @@
+https://kubernetes.io/docs/tasks/tools/
+
+Installed minikube and kubectl for easy demo.
+  >>> curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  >>> curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  >>> sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+  >>> chmod +x kubectl
+  >>> mkdir ~/.local/bin
+  >>> mv kubectl ~/.local/bin/kubectl
+  >>> kubectl version
+
+  >>> sudo curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  >>> sudo install minikube-linux-amd64 /usr/local/bin/minikube
+  >>> minicube start --driver=virtualbox
+  
+Checking virtulization is enabled
+  >>> grep -E --color 'vmx|svm' /proc/cpuingo
+  >>> grep -E --color 'vmx|svm' /proc/cpuinfo
+  
+Error in VB:
+  >>> sudo apt-get purge virtualbox
+  >>> sudo apt-get purge virtualbox-7.0 
+  >>> sudo apt-get purge virtualbox-dkms 
+  >>> sudo apt-get install virtualbox
+
+Starting cluster with one node in VB
+  >>> minikube start --driver=virtualbox
+  >>> minikube status
+
+Starting one pod in minikube node with kubectl
+  >>> kubectl create deployment hello-minikube --image=k8s.gcr.io/echoserver:1.10
+  >>> kubectl get deployment
+  >>> kubectl expose deployment hello-minikube --type=NodePort -- port=8080
+  >>> kubectl expose deployment hello-minikube --type=NodePort --port=8080
+  >>> kubectl get deployment
+  >>> kubectl get pod
+  >>> minilube service hello-minikube --url
+  >>> kubectl delete services hello-minikube
+
+Create an NGINX Pod
+  >>> kubectl run nginx --image=nginx
+  >>> kubectl get nodes
+  >>> kubectl get pods
+  >>> kubectl describe pod nginx
+
+
+YAML file.
+  |>apiVersion: [v1, apps/v1] -->version of kubernetes using to create<--
+  |>kind: [Pod, Service, ReplicaSet, Deployment]
+  |>metadata:
+  |>  name:pod name
+  |>  labels: -->any key-value pair<--
+  |>    app:
+  |>    type:
+  |>spec: -->for pod<--
+  |>  containers:
+  |>    - name: nginx-container
+  |>      image: nginx
+  |>    - name: nginx-container
+  |>      image: nginx
+    
+    
+Creating pod with yaml
+  >>> kubectl create -f pod.yaml
+  >>> kubectl get pods
+    NAME       READY   STATUS    RESTARTS   AGE
+    nginx      1/1     Running   0          77m
+    pod-name   1/1     Running   0          7s
+
+
+Replication Controller
+  ReplicationController is the older of the two (replicaSet) and is used to ensure that a specified number of pod replicas are running at all times. 
+  It uses a label selector to match a set of pods and ensures that the desired number of replicas is running by creating or deleting pods as needed. 
+  ReplicationController is considered a legacy resource and is not recommended for new deployments. Instead, the Deployment resource is recommended, which provides advanced features such as rolling updates and rollbacks.
+
+  Creating replication controller
+    replicationControler.yaml
+    |>apiVersion: v1
+    |>kind: ReplicationController
+    |>metadata:
+    |>  name: replicacont
+    |>  labels:
+    |>    app:myapp
+    |>spec:
+    |>  template:
+    |>    metadata:
+    |>      name: app
+    |>      namespace: default
+    |>      labels: -->uses labels to match the set of pods it manages<--
+    |>        app: your_app
+    |>    spec:
+    |>      containers:
+    |>        - image: busybox
+    |>          command:
+    |>            - sleep
+    |>            - "3600"
+    |>          imagePullPolicy: IfNotPresent
+    |>          name: busybox
+    |>        - image: nginx
+    |>          name: nginx
+    |>      restartPolicy: Always
+    |>  replicas: 3
+
+    >>> kubectl create -f replicationController.yaml
+    >>> kubectl get replicationcontroller
+        NAME          DESIRED   CURRENT   READY   AGE
+        replicacont   3         3         3       7m39s
+    >>> kubectl get pods
+        NAME                READY   STATUS    RESTARTS   AGE
+        replicacont-5brdz   2/2     Running   0          66s
+        replicacont-6qcd2   2/2     Running   0          66s
+        replicacont-gh4vb   2/2     Running   0          66s
+
+Replication Set
+  ReplicationSet is an updated version of the ReplicationController 
+  Like the ReplicationController, it ensures that a desired number of pod replicas are running at all times.
+  ReplicationSet adds support for more expressive pod selectors, which allows for finer-grained control over which pods are selected and managed by the controller.
+  ReplicationSet is the recommended resource for managing replica sets in Kubernetes.
+
+
+  Creating replication set
+    |>apiVersion: apps/v1
+    |>kind: ReplicaSet
+    |>metadata:
+    |>  name: replicacont
+    |>  labels:
+    |>    app:myapp
+    |>spec:
+    |>  template:
+    |>    metadata:
+    |>      name: app
+    |>      namespace: default
+    |>      labels: -->uses labels to match the set of pods it manages<--
+    |>        app: your_app
+    |>    spec:
+    |>      containers:
+    |>        - image: busybox
+    |>          command:
+    |>            - sleep
+    |>            - "3600"
+    |>          imagePullPolicy: IfNotPresent
+    |>          name: busybox
+    |>        - image: nginx
+    |>          name: nginx
+    |>      restartPolicy: Always
+    |>  replicas: 3
+    |>  selector:
+    |>    matchLabels:
+    |>      app:app
+
+  Selector is not strictly required in replication controller
+  In replicaSet we need to provide selector so that it can also manage those pods which are not created by replica set. A user input is require in selector.matchLabels with key value type: value
+
+
+A ReplicaSet in Kubernetes is designed to maintain a specified number of replica pods, and it creates new pods to replace any that are deleted or terminated. This is why you may observe that when you delete a pod, the ReplicaSet will create a new one to maintain the desired replica count.
+
+Deleting pods in replicaset / replicacontroller 
+  >>> kubectl delete rs my-replicaset
+  >>> kubectl delete rc replicacont
+  OR
+  >>> kubectl scale rs my-replicaset --replicas=0
+  >>> kubectl scale rc my-replicaset --replicas=0
+
+Scaling a replicaset
+  >>> kubectl scale replicaset replicacont --replicas=10
+  >>> kubectl get pods
+    NAME                READY   STATUS    RESTARTS   AGE
+    replicacont-297w8   2/2     Running   0          26s
+    replicacont-9mvtd   2/2     Running   0          66s
+    replicacont-bgbxp   2/2     Running   0          26s
+    replicacont-jp69t   2/2     Running   0          66s
+    replicacont-k2h4m   2/2     Running   0          66s
+    replicacont-nsqzv   2/2     Running   0          26s
+    replicacont-qct8d   2/2     Running   0          26s
+    replicacont-sq7sf   2/2     Running   0          26s
+    replicacont-xbm8j   2/2     Running   0          26s
+    replicacont-xf9g9   2/2     Running   0          26s
+
+
+Deployment of pods
+  Deployment of pods and replicas of pod are almoast same but deployment is at higher level then replica. In deployment we can update pod or rollback to previous version. 
+
+  |>apiVersion: apps/v1
+  |>kind: Deployment
+  |>metadata:
+  |>  name: appdeployment
+  |>  labels:
+  |>    tier: frontend
+  |>spec:
+  |>  template:
+  |>    metadata:
+  |>      name: app
+  |>      namespace: default
+  |>      labels:
+  |>        app: app
+  |>    spec:
+  |>      containers:
+  |>        - image: busybox
+  |>          command:
+  |>            - sleep
+  |>            - "3600"
+  |>          imagePullPolicy: IfNotPresent
+  |>          name: busybox
+  |>        - image: nginx
+  |>          name: nginx
+  |>      restartPolicy: Always
+  |>  replicas: 3
+  |>  selector:
+  |>    matchLabels:
+  |>      app: app
+  >>>kubectl get deployment
+    NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+    appdeployment   3/3     3            3           4m13s
+  >>>kubectl get pods
+    NAME                             READY   STATUS    RESTARTS   AGE
+    appdeployment-5b497867b6-gnm99   2/2     Running   0          52s
+    appdeployment-5b497867b6-l4xc8   2/2     Running   0          52s
+    appdeployment-5b497867b6-zp4kv   2/2     Running   0          52s
+  >>>kubectl get replicaset
+    NAME                                       DESIRED   CURRENT   READY   AGE
+    replicaset.apps/appdeployment-5b497867b6   3         3         3       5m14s
+
+
+Scalling Deployment
+  >>> kubectl scale deployment --replicas=10 appdeployment
+  >>> kubectl get pods
+    NAME                             READY   STATUS    RESTARTS   AGE
+    appdeployment-5b497867b6-2bznp   2/2     Running   0          53s
+    appdeployment-5b497867b6-bxnqq   2/2     Running   0          53s
+    appdeployment-5b497867b6-hk7pr   2/2     Running   0          53s
+    appdeployment-5b497867b6-k5k6f   2/2     Running   0          53s
+    appdeployment-5b497867b6-lr2vf   2/2     Running   0          53s
+    appdeployment-5b497867b6-mvgqh   2/2     Running   0          53s
+    appdeployment-5b497867b6-r2pfj   2/2     Running   0          53s
+    appdeployment-5b497867b6-rdv62   2/2     Running   0          101s
+    appdeployment-5b497867b6-tx2b2   2/2     Running   0          101s
+    appdeployment-5b497867b6-vbt6q   2/2     Running   0          101s
+
+Deleting deployment
+  >>>kubectl delete deployment appdeployment
+
+
+Rollback status and history
+  >>> kubectl create -f deploymentApp_rollout.yaml 
+  >>> kubectl rollout history deployment/appdeployment2
+      deployment.apps/appdeployment2 
+      REVISION  CHANGE-CAUSE
+      1         <none>
+  >>> kubectl delete deployment appdeployment2
+      deployment.apps "appdeployment2" deleted
+  >>> kubectl create -f deploymentApp_rollout.yaml --record
+      deployment "appdeployment2" successfully rolled out
+  >>> kubectl rollout history deployment/appdeployment2
+      deployment.apps/appdeployment2 
+      REVISION  CHANGE-CAUSE
+      1         kubectl create --filename=deploymentApp_rollout.yaml --record=true
+
+Update
+  >>> kubectl edit deployment appdeployment2 --record
+      edit image version from nginx to nginx:1.22
+  >>> kubectl rollout status deployment.a/appdeployment2
+        Waiting for deployment "appdeployment2" rollout to finish: 4 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 4 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 4 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 4 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 4 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 out of 6 new replicas have been updated...
+        Waiting for deployment "appdeployment2" rollout to finish: 2 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 2 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 2 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 1 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 1 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 1 old replicas are pending termination...
+        Waiting for deployment "appdeployment2" rollout to finish: 5 of 6 updated replicas are available...
+        deployment "appdeployment2" successfully rolled out
+OR
+  >>> kubectl set image deployment appdeployment2 nginx=nginx:1.18-perl --record
+  >>> kubectl rollout history deployment/appdeployment2
+        REVISION  CHANGE-CAUSE
+        1         kubectl create --filename=deploymentApp_rollout.yaml --record=true
+        2         kubectl edit deployment appdeployment2 --record=true
+        3         kubectl set image deployment appdeployment2 nginx=nginx:1.18-perl --record=true
+
+Revertback
+  >>> kubectl rollout undo deployment/appdeployment2
+  >>> kubectl rollout history deployment/appdeployment2
+        REVISION  CHANGE-CAUSE
+        1         kubectl create --filename=deploymentApp_rollout.yaml --record=true
+        3         kubectl set image deployment appdeployment2 nginx=nginx:1.18-perl --record=true
+        4         kubectl edit deployment appdeployment2 --record=true
+
+Using wrong image
+  it will terminate 1 and try to update that pod and it will fail.
+
+Services
+  Map requests to the nodes from out laptop through the node to the pod running in container.
+  Node port:
+    ports port on pod(target port), 
+    service port(port), 
+    node port 30000-32767
+
+    |>apiVersion: v1
+    |>kind: Service
+    |>metadata: 
+    |>  name: app-service
+    |>spec:
+    |>  type: NodePort
+    |>  ports:
+    |>    - targetPort: 80
+    |>      port: 80
+    |>      nodePort: 30008
+    |>  selector:
+    |>    app: appdeployment2
+    |>    type: front-end
+  Cluster Ip:
+     
+  Load balancer:
+    Random algorithm used to balance load in pods.
