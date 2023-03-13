@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appdeployment2
+  labels:
+    tier: frontend
+spec:
+  template:
+    metadata:
+      name: app2
+      namespace: default
+      labels:
+        app: app2
+    spec:
+      containers:
+        - image: nginx
+          name: nginx
+      restartPolicy: Always
+  replicas: 6
+  selector:
+    matchLabels:
+      app: app2

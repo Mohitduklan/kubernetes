@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: replicacont
+  labels:
+    app: app
+spec:
+  template:
+    metadata:
+      name: app
+      namespace: default
+      labels:
+        app: your_app
+    spec:
+      containers:
+        - image: busybox
+          command:
+            - sleep
+            - "3600"
+          imagePullPolicy: IfNotPresent
+          name: busybox
+        - image: nginx
+          name: nginx
+      restartPolicy: Always
+  replicas: 3

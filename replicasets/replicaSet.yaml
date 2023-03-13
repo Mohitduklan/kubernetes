@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: replicaset
+  labels:
+    app: app1
+spec:
+  template:
+    metadata:
+      name: app
+      namespace: default
+      labels:
+        app: app
+    spec:
+      containers:
+        - image: busybox
+          command:
+            - sleep
+            - "3600"
+          imagePullPolicy: IfNotPresent
+          name: busybox
+        - image: nginx
+          name: nginx
+      restartPolicy: Always
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app
